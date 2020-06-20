@@ -7,7 +7,6 @@
 #include "../include/renderer.h"
 
 
-Renderer::Renderer() {};
 Renderer::~Renderer() {};
 Vec Renderer::radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &states_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene) {};
 Vec Renderer::sampling_scattering() {};
@@ -122,10 +121,11 @@ Vec ExplicitLight::sampling_scattering(const Vec& hit, const int& idx_scene) {
 	return light_vec;
 }
 
-// Cosine weighted importance sampling -----------------------------------------------------------------------------------------------
-QLearning::QLearning(int training_, int test_, int action_space_mode_) : training(training_), test(test_), action_space_mode(action_space_mode_) {};
 
-std::map<Key, QValue>* QLearning::load_weights(std::string filename){
+// Cosine weighted importance sampling -----------------------------------------------------------------------------------------------
+//QLearning::QLearning(int training_, int test_, int action_space_mode_) : training(training_), test(test_), action_space_mode(action_space_mode_) {};
+
+std::map<Key, QValue>* RLmethods::load_weights(std::string filename){
 	std::ifstream infile("weights/" + filename + ".txt");
 	std::string line;
 	std::vector<std::string> results;
@@ -153,62 +153,8 @@ std::map<Key, QValue>* QLearning::load_weights(std::string filename){
 	return dict;
 }
 
-Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
-	Hit_records hit;
-	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
-	int old_id = id;
-	state_rec.old_id = id;
-	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
-	Key key = rect[id]->add_key(x, nl.norm());	// add state
-	std::map<Key, QValue> &addrDict = *dict;
-	if (addrDict.count(key) < 1) {
-		QValue value = rect[id]->add_value(dictAction);			// Initialize Q-values
-		addrDict[key] = value;
-	}
-	Vec f = hit.c;							// object color
-	//float p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max reflectivity (maximum component of r,g,b)
-	//const float& q = rand() / float(RAND_MAX);
-	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
-		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
-		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
-		return hit.e;
-	}
-	if (depth > 10 || hit.e.x > 1){	// Stop deterministically at 10
-		return hit.e;
-	}
 
-	depth += 1;
-	Vec d;
-	float PDF_inverse = 1;
-	float BRDF = 1;
-	float t = 0; 	// distance to intersection
-	if (depth == 1 && this->get_training() == 1) {
-		// ------------ TRAINING PHASE, FIRST BOUNCE --------------------------------------------
-		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
-		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
-		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);// get color in recursive function
-	}
-	else if(depth > 1 && this->get_training() == 1){
-		BRDF =  std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
-		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF, nl, x, state_rec.prob, dictStateAction);
-		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
-		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
-		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);
-	}
-	else{
-		// --------------Q-LEARNING, ACTIVE PHASE --------------------------------------------
-		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
-		const float& cos_theta = nl.dot(d.norm());
-		PDF_inverse = state_rec.prob;
-		BRDF = 1/M_PI;
-		intersect(Ray(x, d.norm()), t, id, old_id, scene.NUM_OBJECTS, rect);
-		return hit.e + f.mult(radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene)) * PDF_inverse * BRDF * cos_theta;// get color in recursive function
-	}
-}
-
-Vec QLearning::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
+Vec RLmethods::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	std::map<Key, QValue> &addrDict = *dict;
 	std::map<Action, Direction> &addrDictAction = *dictAction;
 	std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
@@ -266,7 +212,7 @@ Vec QLearning::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action,
 	return (u*point_old_coord.x  + v*point_old_coord.y  + w*point_old_coord.z); // new_point.x * u + new_point.y * v + new_point.z * w + hitting_point
 }
 
-void QLearning::sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord){
+void RLmethods::sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord){
 	switch(this->action_space_mode){
 		case 0:
 			spher_coord.z = (0.523*(rand() / float(RAND_MAX)) - 0.261) + spher_coord.z;		// Action 72
@@ -313,7 +259,7 @@ void QLearning::sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord)
 	}
 }
 
-void QLearning::compute_Q_prob(const int& action, const std::array<float, dim_action_space + 1>& qvalue, Struct_states& states_rec, const float& total){
+void RLmethods::compute_Q_prob(const int& action, const std::array<float, dim_action_space + 1>& qvalue, Struct_states& states_rec, const float& total){
 	switch(this->action_space_mode){
 		case 0:
 			states_rec.prob = (total *  M_PI*2)/(qvalue[action]*(dim_action_space));
@@ -339,6 +285,12 @@ void QLearning::compute_Q_prob(const int& action, const std::array<float, dim_ac
 		}
 }
 
+
+QLearning::QLearning(int training_, int test_, int action_space_mode_){
+	training = training_;
+	test = test_;
+	action_space_mode = action_space_mode_;
+}
 
 void QLearning::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount){
 	std::map<Key, QValue> &addrDict = *dict;
@@ -400,3 +352,60 @@ void QLearning::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std
 	}
 	addrDict[state][dim_action_space] = total;
 }
+
+Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
+	Hit_records hit;
+	int id = 0;                           // initialize id of intersected object
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	int old_id = id;
+	state_rec.old_id = id;
+	Hitable* &obj = rect[id];				// the hit object
+	Vec nl = obj->normal(r, hit, x);
+	Key key = rect[id]->add_key(x, nl.norm());	// add state
+	std::map<Key, QValue> &addrDict = *dict;
+	if (addrDict.count(key) < 1) {
+		QValue value = rect[id]->add_value(dictAction);			// Initialize Q-values
+		addrDict[key] = value;
+	}
+	Vec f = hit.c;							// object color
+	//float p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max reflectivity (maximum component of r,g,b)
+	//const float& q = rand() / float(RAND_MAX);
+	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
+		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
+		return hit.e;
+	}
+	if (depth > 10 || hit.e.x > 1){	// Stop deterministically at 10
+		return hit.e;
+	}
+
+	depth += 1;
+	Vec d;
+	float PDF_inverse = 1;
+	float BRDF = 1;
+	float t = 0; 	// distance to intersection
+	if (depth == 1 && this->get_training() == 1) {
+		// ------------ TRAINING PHASE, FIRST BOUNCE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);// get color in recursive function
+	}
+	else if(depth > 1 && this->get_training() == 1){
+		BRDF =  std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF, nl, x, state_rec.prob, dictStateAction);
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);
+	}
+	else{
+		// --------------Q-LEARNING, ACTIVE PHASE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		const float& cos_theta = nl.dot(d.norm());
+		PDF_inverse = state_rec.prob;
+		BRDF = 1/M_PI;
+		intersect(Ray(x, d.norm()), t, id, old_id, scene.NUM_OBJECTS, rect);
+		return hit.e + f.mult(radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene)) * PDF_inverse * BRDF * cos_theta;// get color in recursive function
+	}
+}
+
+

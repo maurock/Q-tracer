@@ -36,7 +36,6 @@ class Renderer {
 public:
 	float denom = 1;
 	int training, test, action_space_mode;
-	Renderer();
 	virtual Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &states_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
 	virtual Vec sampling_scattering();
 	virtual std::map<Key, QValue>* load_weights(std::string filename);
@@ -73,21 +72,35 @@ public:
 };
 
 
-class QLearning: public Renderer {
+class RLmethods: public Renderer {
 public:
 	int training, test, action_space_mode;
+	virtual Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction, Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene) = 0;
+	virtual void update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount) = 0;
+	virtual Vec sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
+	virtual std::map<Key, QValue>* load_weights(std::string filename) override;
+	virtual void compute_Q_prob(const int& action, const std::array<float, dim_action_space + 1>& qvalue,Struct_states& states_rec, const float& total);
+	virtual void sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord);
+	virtual int get_training() override {return training;}
+	virtual int get_test() override {return test;}
+	virtual int get_action_space_mode() override {return action_space_mode;}
+	virtual void set_training(int training_) override {training = training_;}
+};
+
+class QLearning: public RLmethods {
+public:
 	QLearning(int training_, int test_, int action_space_mode_);
 	Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction, Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
-	Vec sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
-	std::map<Key, QValue>* load_weights(std::string filename) override;
-	void compute_Q_prob(const int& action, const std::array<float, dim_action_space + 1>& qvalue,Struct_states& states_rec, const float& total);
-	void sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord);
 	void update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount);
-	int get_training() override {return training;}
-	int get_test() override {return test;}
-	int get_action_space_mode() override {return action_space_mode;}
-	void set_training(int training_) override {training = training_;}
-
 };
+
+
+class QPathGuiding: public RLmethods {
+public:
+	QPathGuiding(int training_, int test_, int action_space_mode_);
+	Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction, Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
+	Vec sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
+};
+
 
 #endif /* INCLUDE_RENDERER_H_ */

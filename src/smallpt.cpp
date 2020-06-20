@@ -5,19 +5,8 @@
  *      Author: mauro
  */
 
-#include <math.h>   // smallpt, a Path Tracer by Kevin Beason, 2008
-#include <stdlib.h> // Make : g++ -O3 -fopenmp smallpt.cpp -o smallpt
-#include <stdio.h>  //        Remove "-fopenmp" for g++ version < 4.2
-#include <iostream>
-#include <array>
-#include <chrono>
-#include <map>
-#include <algorithm>
-#include <fstream>
-#include <vector>
-#include <numeric>
-#include <sstream>
-
+#include <stdlib.h>
+#include <stdio.h>
 #include "../include/ray.h"
 #include "../include/vec.h"
 #include "../include/struct_states.h"
@@ -30,16 +19,10 @@
 #include "../include/conversions_utils.h"
 #include "../include/renderer.h"
 
-//const int dim_action_space = 72;  //24
 using Key = std::array<float, 6>;
 using QValue = std::array<float, dim_action_space + 1>;
-using ColorValue = std::array<float, 3>;
 using StateAction = std::array<float, 7>;		// Key for map, State + Action for learning rate and counts
 using StateActionCount = float;					// Count of state-action pair visits for the learning rate
-
-// LOOKFROM for the Camera
-const Vec LOOKFROM = Vec(50, 40, 168);
-
 
 
 inline void initialize_dictAction(std::map<Action, Direction> *dictAction, int action_space_mode){
@@ -75,12 +58,12 @@ int main(int argc, char *argv[]) {
 	// --- Scene
 	int idx_scene = std::stoi(config.cfg["scene"]);
 	Scene scene(idx_scene);
-	int NUM_OBJECTS = scene.NUM_OBJECTS;
-	const float& area_light_room = scene.area_light_room;
 	std::vector<Hitable*> rect = scene.get_scene();
 	// --- Action space
 	std::map<Action, Direction>* dictAction = new std::map<Action, Direction>; 	// dict action-direction
 	initialize_dictAction(dictAction, action_space_mode);
+	// -- LOOKFROM for the Camera
+	const Vec LOOKFROM = Vec(50, 40, 168);
 
 	Vec r;					    // Used for colors of samples
 	Vec *c_te = new Vec[w_te * h_te]; 	// The image

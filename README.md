@@ -14,7 +14,7 @@ The various methods are then compared based on the SSIM index at fixed SPP.
 
 The various path tracing strategies, as well as additional parameters, can be selected in `config.txt`.
 
-# TO DO:
+## TO DO:
 - [x] Add cosine-weighted and NEE
 - [x] Add Q-Learning and improved action space
 - [ ] Add Q-Path Guiding approach
@@ -24,5 +24,6 @@ The various path tracing strategies, as well as additional parameters, can be se
 - [ ] Report results
 - [ ] Add scenes and materials
 
-[1] Dahm, Ken, and Alexander Keller. "Learning light transport the reinforced way." ACM SIGGRAPH 2017 Talks. 2017. 1-2.
+## Literature
+[1] Dahm, Ken, and Alexander Keller. "Learning light transport the reinforced way." ACM SIGGRAPH 2017 Talks. 2017. 1-2. <br>
 [2] Müller, Thomas, Markus Gross, and Jan Novák. "Practical path guiding for efficient light‐transport simulation." Computer Graphics Forum. Vol. 36. No. 4. 2017.

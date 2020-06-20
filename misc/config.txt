@@ -1,0 +1,17 @@
+# Config file. Please read Config_README.txt for info about the following variables.
+
+path_tracing_mode : 2
+experiment_name : scene3-QLearning-eps05-test
+action_space_mode : 1
+scene : 3 
+w_train : 128
+h_train : 128
+spp_train : 8
+w_test : 256
+h_test : 256
+spp_test : 128
+epsilon_decay : 7500
+q_update_mode : 0
+training : 0
+test : 1
+weight_filename : weights-QLearning-eps05

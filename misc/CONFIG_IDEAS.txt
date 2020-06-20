@@ -1,0 +1,19 @@
+CONFIG FILE:
+
+
+main.cpp, sampleScatteringMaxQ()
+int equally_seized_patches / not_equally_sized_patched
+
+action_space_mode :
+	0: equally-sized patches
+	1: not equally-sized patches
+ 
+path_tracing_mode : 
+	0: Cosine-weighted importance sampling
+	1: Explicit light sampling
+	2: Q-learning, original action space, delayed rewards
+	3: Q-learning, improved action space, delayed rewards
+	4: Path guiding, adapted approach
+	5: Q-Learning path guiding, improved action space, no delay
+	
+

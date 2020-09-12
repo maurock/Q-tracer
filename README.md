@@ -17,7 +17,7 @@ The various path tracing strategies, as well as additional parameters, can be se
 ## TO DO:
 - [x] Add cosine-weighted and NEE
 - [x] Add Q-Learning and improved action space
-- [ ] Add Q-Path Guiding approach
+- [x] Add Q-Path Guiding approach
 - [ ] Add Q-learning, no-delayed reward
 - [ ] Add description of various methods
 - [ ] Add instructions

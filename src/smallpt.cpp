@@ -96,6 +96,12 @@ int main(int argc, char *argv[]) {
 	case 2:
 		renderer = new QLearning(training, test, action_space_mode);
 	    break;
+	case 3:
+		renderer = new QPathGuiding(training, test, action_space_mode);
+	    break;
+	case 4:
+		renderer = new QUpdate_PG(training, test, action_space_mode);
+	    break;
 	}
 	// Training phase --------------------------------------------------------------------------------------------------
 	if (renderer->get_training() == 1){

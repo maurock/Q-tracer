@@ -5,7 +5,13 @@
  *      Author: mauro
  */
 #include "../include/renderer.h"
+#include <sys/stat.h>
 
+bool IsPathExist(const std::string &s)
+{
+  struct stat buffer;
+  return (stat (s.c_str(), &buffer) == 0);
+}
 
 Renderer::~Renderer() {};
 Vec Renderer::radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &states_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene) {};
@@ -126,6 +132,9 @@ Vec ExplicitLight::sampling_scattering(const Vec& hit, const int& idx_scene) {
 //QLearning::QLearning(int training_, int test_, int action_space_mode_) : training(training_), test(test_), action_space_mode(action_space_mode_) {};
 
 std::map<Key, QValue>* RLmethods::load_weights(std::string filename){
+	if(!IsPathExist("weights/" + filename + ".txt")){
+		std::cout << "File containing the weights does not exist." << std::endl;
+	}
 	std::ifstream infile("weights/" + filename + ".txt");
 	std::string line;
 	std::vector<std::string> results;
@@ -157,12 +166,8 @@ std::map<Key, QValue>* RLmethods::load_weights(std::string filename){
 Vec RLmethods::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	std::map<Key, QValue> &addrDict = *dict;
 	std::map<Action, Direction> &addrDictAction = *dictAction;
-	std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
 	const Key& state = rect[id]->add_key(x, nl.norm());		// coordinates
-	if (addrDict.count(state) < 1) {
-		QValue value = rect[id]->add_value(dictAction);			// To initialize Q-values. To return colors, comment this line.
-		addrDict[state] = value;
-	}
+	//std::cout << " State 2: " << state[0] << "  " << state[1] << "  " << state[2] << "  " << state[3] << std::endl;
 	// Create temporary coordinates system
 	Vec& w = nl.norm();
 	const Vec& u = getTangent(w).norm();
@@ -197,12 +202,7 @@ Vec RLmethods::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action,
 	states_rec.old_state = state;
 	states_rec.old_action = action;
 
-	// Add StateAction count
-	const std::array<float, 7>& stateactionpair = {state[0],state[1],state[2],state[3],state[4],state[5], (float) action};
-	if(addrDictStateActionCount.count(stateactionpair) < 1){
-		addrDictStateActionCount[stateactionpair] = 0;
-	}
-	addrDictStateActionCount[stateactionpair] = addrDictStateActionCount[stateactionpair] + 1;
+	update_stateaction_count(state, action, dictStateActionCount, false);
 
 	// Scatter random inside the selected patch, convert to spherical coordinates for semplicity and then back to cartesian
 	Vec spher_coord = cartToSpher(point_old_coord);
@@ -210,6 +210,16 @@ Vec RLmethods::sampling_scattering(std::map<Key, QValue> *dict, std::map<Action,
 	sample_spher_coord(spher_coord, point_old_coord);
 	point_old_coord = spherToCart(spher_coord);
 	return (u*point_old_coord.x  + v*point_old_coord.y  + w*point_old_coord.z); // new_point.x * u + new_point.y * v + new_point.z * w + hitting_point
+}
+
+void RLmethods::update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete){
+	std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
+	// Add StateAction count
+	const std::array<float, 7>& stateactionpair = {state[0],state[1],state[2],state[3],state[4],state[5], (float) action};
+	if(addrDictStateActionCount.count(stateactionpair) < 1){
+		addrDictStateActionCount[stateactionpair] = 0;
+	}
+	addrDictStateActionCount[stateactionpair] = addrDictStateActionCount[stateactionpair] + 1;
 }
 
 void RLmethods::sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord){
@@ -283,6 +293,22 @@ void RLmethods::compute_Q_prob(const int& action, const std::array<float, dim_ac
 			states_rec.prob = (total *  prob_patch)/(qvalue[action]);
 			break;
 		}
+}
+
+void RLmethods::compute_action_prob(const int& action, float& prob_patch){
+	if(action < 12){
+		prob_patch = 0.0871 / 12;
+	}else if(action >= 12 && action < 24){
+		prob_patch = 0.0964 / 12;
+	}else if(action >= 24 && action < 36){
+		prob_patch = 0.1093 / 12;
+	}else if(action >= 36 && action < 48){
+		prob_patch = 0.1297 / 12;
+	}else if(action >= 48 && action < 60){
+		prob_patch = 0.1691 / 12;
+	}else{
+		prob_patch = 0.408 / 12;
+	}
 }
 
 
@@ -368,8 +394,6 @@ Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Ke
 		addrDict[key] = value;
 	}
 	Vec f = hit.c;							// object color
-	//float p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max reflectivity (maximum component of r,g,b)
-	//const float& q = rand() / float(RAND_MAX);
 	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
 		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
 		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
@@ -409,3 +433,238 @@ Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Ke
 }
 
 
+QPathGuiding::QPathGuiding(int training_, int test_, int action_space_mode_) : sequence {}{
+	training = training_;
+	test = test_;
+	action_space_mode = action_space_mode_;
+}
+
+Vec QPathGuiding::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
+	Hit_records hit;
+	int id = 0;                           // initialize id of intersected object
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	int old_id = id;
+	state_rec.old_id = id;
+	Hitable* &obj = rect[id];				// the hit object
+	Vec nl = obj->normal(r, hit, x);
+	Key key = rect[id]->add_key(x, nl.norm());	// add state
+	//std::cout << " State 1: " << key[0] << "  " << key[1] << "  " << key[2] << "  " << key[3] << std::endl;
+	std::map<Key, QValue> &addrDict = *dict;
+	std::map<Action, Direction> &addrDictAction = *dictAction;
+	if (addrDict.count(key) < 1) {
+		QValue value = rect[id]->add_value(dictAction);			// Initialize Q-values
+		addrDict[key] = value;
+	}
+	Vec f = hit.c;							// object color
+	if(depth>0){
+		// If not primary ray, add state, action, cos_w, BRDF
+		Sequence seq;
+		seq = {state_rec.old_state, state_rec.old_action, addrDictAction[state_rec.old_action].z, std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI};
+		sequence.push_back(seq);
+	}
+	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
+		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
+		sequence.clear();
+		return hit.e;
+	}
+	if (depth > 10 || hit.e.x > 1){	// Stop deterministically at 10
+		sequence.clear();
+		return hit.e;
+	}
+	depth += 1;
+	Vec d;
+	float PDF_inverse = 1;
+	float BRDF = 1;
+	float t = 0; 	// distance to intersection
+	if (depth == 1 && this->get_training() == 1) {
+		// ------------ TRAINING PHASE, FIRST BOUNCE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);// get color in recursive function
+	}
+	else if(depth > 1 && this->get_training() == 1){
+		BRDF =  std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		//update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF, nl, x, state_rec.prob, dictStateAction);
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);
+	}
+	else{
+		// --------------Q-LEARNING, ACTIVE PHASE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		const float& cos_theta = nl.dot(d.norm());
+		PDF_inverse = state_rec.prob;
+		BRDF = 1/M_PI;
+		intersect(Ray(x, d.norm()), t, id, old_id, scene.NUM_OBJECTS, rect);
+		return hit.e + f.mult(radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene)) * PDF_inverse * BRDF * cos_theta;// get color in recursive function
+	}
+}
+
+
+void QPathGuiding::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount){
+	std::map<Key, QValue> &addrDict = *dict;
+	std::map<Action, Direction> &addrDictAction = *dictAction;
+	std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
+
+	float update = 0;
+	float& dict_state = addrDict[state][old_action];
+
+	std::array<float, dim_action_space + 1>& dict_next_state = addrDict[next_state];
+	int count = 0;
+	Sequence seq;
+	float q_value, cos_w, num_visits;
+	float prob_patch;
+	float total;
+	for (auto it = sequence.rbegin(); it != sequence.rend(); ++it){
+		seq = *it;
+		update_stateaction_count(seq.old_state, seq.old_action, dictStateActionCount, true);
+		num_visits = addrDictStateActionCount[{seq.old_state[0], seq.old_state[1],seq.old_state[2], seq.old_state[3], seq.old_state[4], seq.old_state[5], (float) seq.old_action}];
+		if(count==0){
+			q_value = 12;
+		}else{
+			q_value = q_value * cos_w * seq.BRDF * prob_patch * 2 * M_PI;
+		}
+		addrDict[seq.old_state][seq.old_action] = (addrDict[seq.old_state][seq.old_action]*num_visits + q_value)/num_visits;
+		cos_w = seq.cos_w;
+		compute_action_prob(seq.old_action, prob_patch);
+		count++;
+		// Update total
+		total = 0;
+		for(int i=0; i<72; i++){
+			total += addrDict[seq.old_state][i];
+		}
+		addrDict[seq.old_state][72] = total;
+	}
+}
+
+void QPathGuiding::update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete){
+	if(sequence_complete){
+		std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
+		// Add StateAction count
+		const std::array<float, 7>& stateactionpair = {state[0],state[1],state[2],state[3],state[4],state[5], (float) action};
+		if(addrDictStateActionCount.count(stateactionpair) < 1){
+			addrDictStateActionCount[stateactionpair] = 0;
+		}
+		addrDictStateActionCount[stateactionpair] = addrDictStateActionCount[stateactionpair] + 1;
+	}
+}
+
+
+QUpdate_PG::QUpdate_PG(int training_, int test_, int action_space_mode_) : sequence {}{
+	training = training_;
+	test = test_;
+	action_space_mode = action_space_mode_;
+}
+
+Vec QUpdate_PG::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
+	Hit_records hit;
+	int id = 0;                           // initialize id of intersected object
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	int old_id = id;
+	state_rec.old_id = id;
+	Hitable* &obj = rect[id];				// the hit object
+	Vec nl = obj->normal(r, hit, x);
+	Key key = rect[id]->add_key(x, nl.norm());	// add state
+	//std::cout << " State 1: " << key[0] << "  " << key[1] << "  " << key[2] << "  " << key[3] << std::endl;
+	std::map<Key, QValue> &addrDict = *dict;
+	std::map<Action, Direction> &addrDictAction = *dictAction;
+	if (addrDict.count(key) < 1) {
+		QValue value = rect[id]->add_value(dictAction);			// Initialize Q-values
+		addrDict[key] = value;
+	}
+	Vec f = hit.c;							// object color
+	if(depth>0){
+		// If not primary ray, add state, action, cos_w, BRDF
+		Sequence seq;
+		seq = {state_rec.old_state, state_rec.old_action, addrDictAction[state_rec.old_action].z, std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI};
+		sequence.push_back(seq);
+	}
+	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
+		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
+		sequence.clear();
+		return hit.e;
+	}
+	if (depth > 10 || hit.e.x > 1){	// Stop deterministically at 10
+		sequence.clear();
+		return hit.e;
+	}
+	depth += 1;
+	Vec d;
+	float PDF_inverse = 1;
+	float BRDF = 1;
+	float t = 0; 	// distance to intersection
+	if (depth == 1 && this->get_training() == 1) {
+		// ------------ TRAINING PHASE, FIRST BOUNCE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);// get color in recursive function
+	}
+	else if(depth > 1 && this->get_training() == 1){
+		BRDF =  std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
+		//update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF, nl, x, state_rec.prob, dictStateAction);
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		PDF_inverse = state_rec.prob;		// PDF = 1/24 since the ray can be scattered in one of the 24 areas
+		return radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene);
+	}
+	else{
+		// --------------Q-LEARNING, ACTIVE PHASE --------------------------------------------
+		d = sampling_scattering(dict, dictAction, id, x, nl, state_rec, dictStateAction, epsilon, rect, scene);
+		const float& cos_theta = nl.dot(d.norm());
+		PDF_inverse = state_rec.prob;
+		BRDF = 1/M_PI;
+		intersect(Ray(x, d.norm()), t, id, old_id, scene.NUM_OBJECTS, rect);
+		return hit.e + f.mult(radiance(Ray(x, d.norm()), depth, path_length, dict, counter_red, dictAction, state_rec, dictStateAction, epsilon, rect, scene)) * PDF_inverse * BRDF * cos_theta;// get color in recursive function
+	}
+}
+
+
+void QUpdate_PG::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount){
+	std::map<Key, QValue> &addrDict = *dict;
+	std::map<Action, Direction> &addrDictAction = *dictAction;
+	std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
+	float lr, reward;
+	int count = 0;
+	Sequence seq;
+	float q_value_temp, q_value, cumul_q_value, cos_w, num_visits, prob_patch, total;
+	for (auto it = sequence.rbegin(); it != sequence.rend(); ++it){
+		seq = *it;
+		update_stateaction_count(seq.old_state, seq.old_action, dictStateActionCount, true);
+		num_visits = addrDictStateActionCount[{seq.old_state[0], seq.old_state[1],seq.old_state[2], seq.old_state[3], seq.old_state[4], seq.old_state[5], (float) seq.old_action}];
+		lr = 1/num_visits;
+		cumul_q_value = 0;
+		if(count==0){
+			reward = 12;
+			q_value = 0;
+		}else{
+			reward = 0;
+		}
+		addrDict[seq.old_state][seq.old_action] = addrDict[seq.old_state][seq.old_action]* (1 - lr) + lr * (reward + q_value);
+		for(int i=0; i<72; i++){
+			compute_action_prob(i, q_value_temp);
+			cumul_q_value += q_value_temp * addrDict[seq.old_state][i] * addrDictAction[i].z;
+		}
+		q_value = cumul_q_value * seq.BRDF * 2 * M_PI;
+		compute_action_prob(seq.old_action, prob_patch);
+		count++;
+		// Update total
+		total = 0;
+		for(int i=0; i<72; i++){
+			total += addrDict[seq.old_state][i];
+		}
+		addrDict[seq.old_state][72] = total;
+	}
+}
+
+void QUpdate_PG::update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete){
+	if(sequence_complete){
+		std::map<StateAction, StateActionCount> &addrDictStateActionCount = *dictStateActionCount;
+		// Add StateAction count
+		const std::array<float, 7>& stateactionpair = {state[0],state[1],state[2],state[3],state[4],state[5], (float) action};
+		if(addrDictStateActionCount.count(stateactionpair) < 1){
+			addrDictStateActionCount[stateactionpair] = 0;
+		}
+		addrDictStateActionCount[stateactionpair] = addrDictStateActionCount[stateactionpair] + 1;
+	}
+}

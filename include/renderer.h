@@ -22,6 +22,8 @@
 #include "struct_states.h"
 #include "scenes.h"
 #include "conversions_utils.h"
+#include "sequence.h"
+
 
 const int dim_action_space = 72;
 using Key = std::array<float, 6>;
@@ -81,10 +83,12 @@ public:
 	virtual std::map<Key, QValue>* load_weights(std::string filename) override;
 	virtual void compute_Q_prob(const int& action, const std::array<float, dim_action_space + 1>& qvalue,Struct_states& states_rec, const float& total);
 	virtual void sample_spher_coord(Vec& spher_coord, const Vec& point_old_coord);
+	virtual void update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete);
 	virtual int get_training() override {return training;}
 	virtual int get_test() override {return test;}
 	virtual int get_action_space_mode() override {return action_space_mode;}
 	virtual void set_training(int training_) override {training = training_;}
+	virtual void compute_action_prob(const int& action, float& prob_patch);
 };
 
 class QLearning: public RLmethods {
@@ -97,9 +101,21 @@ public:
 
 class QPathGuiding: public RLmethods {
 public:
+	std::vector<Sequence> sequence;
 	QPathGuiding(int training_, int test_, int action_space_mode_);
 	Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction, Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
-	Vec sampling_scattering(std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &id, Vec &x, Vec &nl, Struct_states& states_rec, std::map<StateAction, StateActionCount> *dictStateActionCount, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
+	void update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount);
+	void update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete) override;
+};
+
+
+class QUpdate_PG: public RLmethods {
+public:
+	std::vector<Sequence> sequence;
+	QUpdate_PG(int training_, int test_, int action_space_mode_);
+	Vec radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction, Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene);
+	void update_Q_table(Key& state, Key& next_state, Hit_records& hit,std::map<Key, QValue> *dict, std::map<Action, Direction> *dictAction, int &old_action, float& BRDF, Vec& nl, Vec& x, float prob, std::map<StateAction, StateActionCount> *dictStateActionCount);
+	void update_stateaction_count(const Key& state, const int& action, std::map<StateAction, StateActionCount> *dictStateActionCount, bool sequence_complete) override;
 };
 
 

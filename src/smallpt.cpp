@@ -6,7 +6,11 @@
  */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <omp.h>
+#include <chrono>
+#include <string.h>
 #include "../include/ray.h"
 #include "../include/vec.h"
 #include "../include/struct_states.h"
@@ -18,6 +22,7 @@
 #include "../include/config_reader.h"
 #include "../include/conversions_utils.h"
 #include "../include/renderer.h"
+#include "../include/image_utils.h"
 
 using Key = std::array<float, 6>;
 using QValue = std::array<float, dim_action_space + 1>;
@@ -41,6 +46,17 @@ inline void initialize_dictAction(std::map<Action, Direction> *dictAction, int a
 	myFile.close();
 }
 
+uint8_t* hex_decode(const char *in, size_t len, uint8_t *out)
+{
+	unsigned int i, t, hn, ln;
+        for (t = 0,i = 0; i < len; i+=2,++t) {
+                hn = in[i] > '9' ? in[i] - 'A' + 10 : in[i] - '0';
+                ln = in[i+1] > '9' ? in[i+1] - 'A' + 10 : in[i+1] - '0';
+                out[t] = (hn << 4 ) | ln;
+        }
+        return out;
+}
+
 
 // LOOPS OVER IMAGE PIXELS, SAVES TO PPM FILE
 int main(int argc, char *argv[]) {
@@ -49,8 +65,10 @@ int main(int argc, char *argv[]) {
 	ConfigReader config(filename);
 
 	// Load configuration settings
-	int w_tr = std::stoi(config.cfg["w_train"]), h_tr = std::stoi(config.cfg["h_train"]), w_te = std::stoi(config.cfg["w_test"]), h_te = std::stoi(config.cfg["h_test"]), spp_train = std::stoi(config.cfg["spp_train"]), spp_test = std::stoi(config.cfg["spp_test"]),
-			training = std::stoi(config.cfg["training"]), test = std::stoi(config.cfg["test"]), path_tracing_mode = std::stoi(config.cfg["path_tracing_mode"]), action_space_mode = std::stoi(config.cfg["action_space_mode"]);
+	int w_tr = std::stoi(config.cfg["w_train"]), h_tr = std::stoi(config.cfg["h_train"]), w_te = std::stoi(config.cfg["w_test"]),
+			h_te = std::stoi(config.cfg["h_test"]), spp_train = std::stoi(config.cfg["spp_train"]), spp_test = std::stoi(config.cfg["spp_test"]),
+			training = std::stoi(config.cfg["training"]), test = std::stoi(config.cfg["test"]), path_tracing_mode = std::stoi(config.cfg["path_tracing_mode"]),
+			action_space_mode = std::stoi(config.cfg["action_space_mode"]);
 
 	// Initialize required parameters
 	// --- Weights
@@ -127,9 +145,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			std::cout << "Iteration: " << counter << "     Epsilon: " << epsilon <<std::endl;
-
 		}
-
 		std::cout << "NUMBER OF CENTER STATES: " << counter_states << std::endl;
 
 		// Write Q value to a file
@@ -151,10 +167,13 @@ int main(int argc, char *argv[]) {
 		std::cout << "FILE CLOSED" << std::endl;
 	}
 
+	omp_set_num_threads(16);
+	std::cout << "Maximum num threads: " << omp_get_max_threads() << std::endl;
+	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
 	// Testing phase ------------------------------------------------------------------------------------------------------------------
 	if (renderer->get_test() == 1){
 		renderer->set_training(0);
-		epsilon = 0;
 		std::cout << renderer->get_training() << std::endl;
 		std::map<Key, QValue> *dict = renderer->load_weights(weight_path);
 		Camera cam(LOOKFROM, Vec(50, 40, 5), Vec(0, 1, 0), 65, float(w_te) / float(h_te));
@@ -162,37 +181,33 @@ int main(int argc, char *argv[]) {
 		for (int s = 0; s < spp_test; s++) {
 			std::cout << "Rendering " << s << " / " << spp_test << std::endl;
 			int i=0;
+			#pragma omp parallel for private(r)
 			for (int y = 0 ; y < h_te; y++) {                 // Loop over image rows
 				//fprintf(stderr, "\rACTIVE PHASE: Rendering (%d spp) %5.2f%%", spp_test, 100. * y / (h_te - 1));
 				for (int x = 0; x < w_te; x++) { // Loop cols. Xi = random seed
-						// u and v represents the percentage of the horizontal and vertical values
-						int depth = 0;
-						const float& u = float(x - 0.5 + rand() / float(RAND_MAX)) / float(w_te);
-						const float& v = float((h_te - y - 1) - 0.5 + rand() / float(RAND_MAX)) / float(h_te);
-						Ray d = cam.get_ray(u, v);
-						Struct_states state_rec;
-						state_rec.old_state = {0,0,0,0,0};
-						state_rec.old_action = -1;
-						state_rec.old_id = -1;
-						state_rec.prob = -1;
-						r = r + renderer->radiance(Ray(cam.origin, d.d.norm()), depth, ptrPath_length, dict, counter_red, dictAction, state_rec, dictStateActionCount, epsilon, rect, scene) * (float) (1 /(renderer->get_denom() * spp_test)); // The average is the same as averaging at the end
-					 // Camera rays are pushed ^^^^^ forward to start in interior
-						c_te[i] = c_te[i] + Vec(clamp(r.x), clamp(r.y), clamp(r.z));
-						i++;
-						r = Vec();
+					// u and v represents the percentage of the horizontal and vertical values
+					//std::cout<< x << " , " << y << "    " << omp_get_thread_num() << std::endl;
+					int depth = 0;
+					const float& u = float(x - 0.5 + rand() / float(RAND_MAX)) / float(w_te);
+					const float& v = float((h_te - y - 1) - 0.5 + rand() / float(RAND_MAX)) / float(h_te);
+					Ray d = cam.get_ray(u, v);
+					Struct_states state_rec;
+					state_rec.old_state = {0,0,0,0,0};
+					state_rec.old_action = -1;
+					state_rec.old_id = -1;
+					state_rec.prob = -1;
+					r = r + renderer->radiance(Ray(cam.origin, d.d.norm()), depth, ptrPath_length, dict, counter_red, dictAction, state_rec, dictStateActionCount, epsilon, rect, scene) * (float) (1 /(renderer->get_denom() * spp_test)); // The average is the same as averaging at the end
+					i = y * w_te + x;
+					c_te[i] = c_te[i] + Vec(clamp(r.x), clamp(r.y), clamp(r.z));
+					r = Vec();
 				}
 			}
-
-			std::string title_name = "images/" + experiment_name + "-" + std::to_string(s) + ".ppm";
-			char const *ccc  = &title_name[0];
-			FILE *f = fopen(ccc , "w"); // Write image to PPM file.
-
-			//FILE *f = fopen("TITLE" , "w"); // Write image to PPM file.
-			fprintf(f, "P3\n%d %d\n%d\n", w_te, h_te, 255);
-			for (int i = 0; i < w_te * h_te; i++){
-				fprintf(f, "%d %d %d ", toInt(c_te[i].x*spp_test/(s+1)), toInt(c_te[i].y*spp_test/(s+1)), toInt(c_te[i].z*spp_test/(s+1)));
-			}
+			write_PPM_P6(experiment_name, s, c_te, spp_test, w_te, h_te);
 		}
+
+		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+		std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
 		return 0;
 	}
 }

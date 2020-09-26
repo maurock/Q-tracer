@@ -46,6 +46,9 @@ public:
 	virtual int get_test() {return test;}
 	virtual int get_action_space_mode() {return action_space_mode;}
 	virtual void set_training(int training_);
+	std::vector<float> q_loss;
+	virtual std::vector<float> get_loss() {return q_loss;}
+	virtual void add_loss(float loss) {q_loss.push_back(loss);}
 	virtual ~Renderer();
 };
 

@@ -343,7 +343,7 @@ void QLearning::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std
 				for(int i=0; i< dim_action_space; i++){
 					cumulative_q += dict_next_state[i] * addrDictAction[i].z;
 				}
-				update = dict_state * (1 - lr) + lr * ((1)/(float) dim_action_space) * cumulative_q *  BRDF * 2 * M_PI;;
+				update = dict_state * (1 - lr) + lr * ((1)/(float) dim_action_space) * cumulative_q *  BRDF * 2 * M_PI;
 				break;
 			case 1:
 				for(int i=0; i< dim_action_space; i++){

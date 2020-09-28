@@ -4,7 +4,6 @@
  *  Created on: Mar 27, 2019
  *      Author: mauro
  */
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,6 +22,7 @@
 #include "../include/conversions_utils.h"
 #include "../include/renderer.h"
 #include "../include/image_utils.h"
+#include "../include/load_obj.h"
 
 using Key = std::array<float, 6>;
 using QValue = std::array<float, dim_action_space + 1>;
@@ -60,6 +60,9 @@ uint8_t* hex_decode(const char *in, size_t len, uint8_t *out)
 
 // LOOPS OVER IMAGE PIXELS, SAVES TO PPM FILE
 int main(int argc, char *argv[]) {
+	std::string filename_obj = "cube.obj";
+	load_obj(filename_obj);
+
 	// Read configuration file
 	std::string filename = "misc/config.txt";
 	ConfigReader config(filename);

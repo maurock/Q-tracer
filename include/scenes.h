@@ -6,7 +6,6 @@
 #include <map>
 //----------------------------------------------------------------------------
 
-// Scene 3: Sunset
 class Scene{
 public:
 	int idx_scene;

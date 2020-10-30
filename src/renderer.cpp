@@ -27,11 +27,14 @@ CosineWeighted::CosineWeighted() : training(0), test(1) {}
 Vec CosineWeighted::radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	Hit_records hit;
 	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect, hit);            // id calculated inside the function
+	if (!hit.hit){
+		return Vec(0,0,0);
+	}
 	int old_id = id;
 	state_rec.old_id = id;
 	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
+	Vec nl = obj->normal(r, hit);
 	Vec f = hit.c;							// object color
 	float p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max reflectivity (maximum component of r,g,b)
 	const float& q = rand() / float(RAND_MAX);
@@ -73,11 +76,14 @@ ExplicitLight::ExplicitLight() : training(0), test(1) {}
 Vec ExplicitLight::radiance(const Ray &r, int &depth, float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	Hit_records hit;
 	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect, hit);            // id calculated inside the function
+	if (!hit.hit){
+		return Vec(0,0,0);
+	}
 	int old_id = id;
 	state_rec.old_id = id;
 	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
+	Vec nl = obj->normal(r, hit);
 	Vec f = hit.c;							// object color
 	float p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max reflectivity (maximum component of r,g,b)
 	const float& q = rand() / float(RAND_MAX);
@@ -85,6 +91,7 @@ Vec ExplicitLight::radiance(const Ray &r, int &depth, float *path_length, std::m
 		if (q < p) {
 			f = f * (1 / p);
 		} else {
+			std::cout << "Light source hit!" << std::endl;
 			return hit.e;
 		}
 	}
@@ -382,11 +389,14 @@ void QLearning::update_Q_table(Key& state, Key& next_state, Hit_records& hit,std
 Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	Hit_records hit;
 	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect, hit);            // id calculated inside the function
+	if (!hit.hit){
+		return Vec(0,0,0);
+	}
 	int old_id = id;
 	state_rec.old_id = id;
 	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
+	Vec nl = obj->normal(r, hit);
 	Key key = rect[id]->add_key(x, nl.norm());	// add state
 	std::map<Key, QValue> &addrDict = *dict;
 	if (addrDict.count(key) < 1) {
@@ -394,7 +404,7 @@ Vec QLearning::radiance(const Ray &r, int &depth,float *path_length, std::map<Ke
 		addrDict[key] = value;
 	}
 	Vec f = hit.c;							// object color
-	if(hit.e.x>1 && depth>1 && this->get_training()==1){      // Light source hit
+	if(hit.e.x>1 && depth>=1 && this->get_training()==1){      // Light source hit
 		float BRDF = std::max({hit.c.x, hit.c.y, hit.c.z})/M_PI;
 		update_Q_table(state_rec.old_state, key, hit, dict, dictAction, state_rec.old_action, BRDF , nl, x, state_rec.prob,dictStateAction);
 		return hit.e;
@@ -442,11 +452,14 @@ QPathGuiding::QPathGuiding(int training_, int test_, int action_space_mode_) : s
 Vec QPathGuiding::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	Hit_records hit;
 	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect, hit);            // id calculated inside the function
+	if (!hit.hit){
+		return Vec(0,0,0);
+	}
 	int old_id = id;
 	state_rec.old_id = id;
 	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
+	Vec nl = obj->normal(r, hit);
 	Key key = rect[id]->add_key(x, nl.norm());	// add state
 	//std::cout << " State 1: " << key[0] << "  " << key[1] << "  " << key[2] << "  " << key[3] << std::endl;
 	std::map<Key, QValue> &addrDict = *dict;
@@ -560,11 +573,14 @@ QUpdate_PG::QUpdate_PG(int training_, int test_, int action_space_mode_) : seque
 Vec QUpdate_PG::radiance(const Ray &r, int &depth,float *path_length, std::map<Key, QValue> *dict, int& counter_red, std::map<Action, Direction> *dictAction,Struct_states &state_rec, std::map<StateAction, StateActionCount> *dictStateAction, float& epsilon, std::vector<Hitable*> rect, const Scene& scene){
 	Hit_records hit;
 	int id = 0;                           // initialize id of intersected object
-	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect);            // id calculated inside the function
+	Vec x = hittingPoint(r, id, state_rec.old_id, scene.NUM_OBJECTS, rect, hit);            // id calculated inside the function
+	if (!hit.hit){
+		return Vec(0,0,0);
+	}
 	int old_id = id;
 	state_rec.old_id = id;
 	Hitable* &obj = rect[id];				// the hit object
-	Vec nl = obj->normal(r, hit, x);
+	Vec nl = obj->normal(r, hit);
 	Key key = rect[id]->add_key(x, nl.norm());	// add state
 	//std::cout << " State 1: " << key[0] << "  " << key[1] << "  " << key[2] << "  " << key[3] << std::endl;
 	std::map<Key, QValue> &addrDict = *dict;

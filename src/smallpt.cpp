@@ -60,8 +60,7 @@ uint8_t* hex_decode(const char *in, size_t len, uint8_t *out)
 
 // LOOPS OVER IMAGE PIXELS, SAVES TO PPM FILE
 int main(int argc, char *argv[]) {
-	std::string filename_obj = "cube.obj";
-	load_obj(filename_obj);
+
 
 	// Read configuration file
 	std::string filename = "misc/config.txt";
@@ -71,7 +70,7 @@ int main(int argc, char *argv[]) {
 	int w_tr = std::stoi(config.cfg["w_train"]), h_tr = std::stoi(config.cfg["h_train"]), w_te = std::stoi(config.cfg["w_test"]),
 			h_te = std::stoi(config.cfg["h_test"]), spp_train = std::stoi(config.cfg["spp_train"]), spp_test = std::stoi(config.cfg["spp_test"]),
 			training = std::stoi(config.cfg["training"]), test = std::stoi(config.cfg["test"]), path_tracing_mode = std::stoi(config.cfg["path_tracing_mode"]),
-			action_space_mode = std::stoi(config.cfg["action_space_mode"]);
+			action_space_mode = std::stoi(config.cfg["action_space_mode"]), save_every_spp = std::stoi(config.cfg["save_every_spp"]);
 
 	// Initialize required parameters
 	// --- Weights
@@ -80,21 +79,21 @@ int main(int argc, char *argv[]) {
 	int idx_scene = std::stoi(config.cfg["scene"]);
 	Scene scene(idx_scene);
 	std::vector<Hitable*> rect = scene.get_scene();
+	std::cout << "NUM OBJECTS: " << scene.NUM_OBJECTS << "         area light: " << scene.area_light_room << std::endl;
+
 	// --- Action space
 	std::map<Action, Direction>* dictAction = new std::map<Action, Direction>; 	// dict action-direction
 	initialize_dictAction(dictAction, action_space_mode);
 	// -- LOOKFROM for the Camera
-	const Vec LOOKFROM = Vec(50, 40, 168);
-
+	//const Vec LOOKFROM = Vec(50, 40, 168);        //scene1-3
+	//const Vec LOOKFROM = Vec(50, 50, 30);		    //scene4-cube
+	const Vec LOOKFROM = Vec(0, 4, 10);		    //scene4-Astro
 	Vec r;					    // Used for colors of samples
 	Vec *c_te = new Vec[w_te * h_te]; 	// The image
 
 	std::map<Key, QValue>* dict = new std::map<Key, QValue>;    			// dict position-Qvalue
 
-	// Dictionary for actions
-
-
-	// Count visit in each state-action pait to adjust the learning rate
+	// Count visit in each state-action pair to adjust the learning rate
 	std::map<StateAction, StateActionCount>* dictStateActionCount = new std::map<StateAction, StateActionCount>; 	// dict action-direction
 
 	// Counter for average path length (comparison metric)
@@ -127,7 +126,7 @@ int main(int argc, char *argv[]) {
 	// Training phase --------------------------------------------------------------------------------------------------
 	if (renderer->get_training() == 1){
 		epsilon = 1;
-		Camera cam(LOOKFROM, Vec(50, 40, 5), Vec(0, 1, 0), 65, float(w_tr) / float(h_tr));
+		Camera cam(LOOKFROM, Vec(50, 50, 5), Vec(0, 1, 0), 65, float(w_tr) / float(h_tr));
 		for (int s = 0; s < spp_train; s++) {		//	scatter rays 100 times more than the size of the screen
 			std::cout << "-----------------------" << std::endl << "EPISODE " << (s+1) << std::endl;
 			for (int y = 0; y < h_tr; y++) {                 // Loop over image rows
@@ -171,7 +170,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	omp_set_num_threads(16);
-	std::cout << "Maximum num threads: " << omp_get_max_threads() << std::endl;
+	//std::cout << "Maximum num threads: " << omp_get_max_threads() << std::endl;
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
 	// Testing phase ------------------------------------------------------------------------------------------------------------------
@@ -179,12 +178,13 @@ int main(int argc, char *argv[]) {
 		renderer->set_training(0);
 		std::cout << renderer->get_training() << std::endl;
 		std::map<Key, QValue> *dict = renderer->load_weights(weight_path);
-		Camera cam(LOOKFROM, Vec(50, 40, 5), Vec(0, 1, 0), 65, float(w_te) / float(h_te));
+		//Camera cam(LOOKFROM, Vec(50, 50, 5), Vec(0, 1, 0), 65, float(w_te) / float(h_te));
+		Camera cam(LOOKFROM, Vec(0, 4, 0), Vec(0, 1, 0), 65, float(w_te) / float(h_te));
 		epsilon = 0;
 		for (int s = 0; s < spp_test; s++) {
 			std::cout << "Rendering " << s << " / " << spp_test << std::endl;
 			int i=0;
-			#pragma omp parallel for private(r)
+			#pragma omp parallel for private(r, i)
 			for (int y = 0 ; y < h_te; y++) {                 // Loop over image rows
 				//fprintf(stderr, "\rACTIVE PHASE: Rendering (%d spp) %5.2f%%", spp_test, 100. * y / (h_te - 1));
 				for (int x = 0; x < w_te; x++) { // Loop cols. Xi = random seed
@@ -205,7 +205,10 @@ int main(int argc, char *argv[]) {
 					r = Vec();
 				}
 			}
-			write_PPM_P6(experiment_name, s, c_te, spp_test, w_te, h_te);
+
+			if ((save_every_spp == 1) || ((s == (spp_test-1) && (save_every_spp == 0)))){
+				write_PPM_P6(experiment_name, s, c_te, spp_test, w_te, h_te);
+			}
 		}
 
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();

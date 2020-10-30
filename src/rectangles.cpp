@@ -14,7 +14,7 @@
 Rectangle_xz::Rectangle_xz(float x1_, float x2_, float z1_, float z2_, float y_,
 		Vec e_, Vec c_) : x1(x1_), x2(x2_), z1(z1_), z2(z2_), y(y_), e(e_), c(c_) {}
 
-float Rectangle_xz::intersect(const Ray &r) const { // returns distance, 0 if no hit
+float Rectangle_xz::intersect(const Ray &r, Vec& P) const { // returns distance, 0 if no hit
 	float t = (y - r.o.y) / r.d.y;		// ray.y = t* dir.y
 	const float& x = r.o.x + r.d.x * t;
 	const float& z = r.o.z + r.d.z * t;
@@ -26,12 +26,16 @@ float Rectangle_xz::intersect(const Ray &r) const { // returns distance, 0 if no
 	}
 }
 
-Vec Rectangle_xz::normal(const Ray &r, Hit_records &hit, Vec &x) const {
+Vec Rectangle_xz::normal(const Ray &r, Hit_records &hit) const {
 		Vec n = Vec(0, 1, 0);
 		hit.c = c;
 		hit.e = e;
 		return n.dot(r.d) < 0 ? n : n * -1;
-	}
+}
+
+float Rectangle_xz::surface() const {
+	return abs((x2 - x1) * (z2 - z1));
+}
 
 std::array<float, 3> Rectangle_xz::add_value_color(std::array<float, 3>& x_reduced) const {
 	return { x_reduced[0] / 10 * (rand() / float(RAND_MAX)), x_reduced[1] * (rand() / float(RAND_MAX)),
@@ -46,7 +50,7 @@ std::array<float, 3> Rectangle_xz::add_value_color(std::array<float, 3>& x_reduc
 Rectangle_xy::Rectangle_xy(float x1_, float x2_, float y1_, float y2_, float z_, Vec e_, Vec c_) :
 			x1(x1_), x2(x2_), y1(y1_), y2(y2_), z(z_), e(e_), c(c_) {}
 
-float Rectangle_xy::intersect(const Ray &r) const { // returns distance, 0 if no hit
+float Rectangle_xy::intersect(const Ray &r, Vec& P) const { // returns distance, 0 if no hit
 	float t = (z - r.o.z) / r.d.z;
 	const float& x = r.o.x + r.d.x * t;
 	const float& y = r.o.y + r.d.y * t;
@@ -58,11 +62,15 @@ float Rectangle_xy::intersect(const Ray &r) const { // returns distance, 0 if no
 	}
 }
 
-Vec Rectangle_xy::normal(const Ray &r, Hit_records &hit, Vec &x) const {
+Vec Rectangle_xy::normal(const Ray &r, Hit_records &hit) const {
 	Vec n = Vec(0, 0, 1);
 	hit.c = c;
 	hit.e = e;
 	return n.dot(r.d) < 0 ? n : n * -1;
+}
+
+float Rectangle_xy::surface() const {
+	return abs((x2 - x1) * (y2 - y1));
 }
 
 std::array<float, 3> Rectangle_xy::add_value_color(std::array<float, 3>& x_reduced) const {
@@ -79,7 +87,7 @@ std::array<float, 3> Rectangle_xy::add_value_color(std::array<float, 3>& x_reduc
 Rectangle_yz::Rectangle_yz(float y1_, float y2_, float z1_, float z2_, float x_,	Vec e_, Vec c_) :
 			y1(y1_), y2(y2_), z1(z1_), z2(z2_), x(x_), e(e_), c(c_) {}
 
-float Rectangle_yz::intersect(const Ray &r) const { // returns distance, 0 if no hit
+float Rectangle_yz::intersect(const Ray &r, Vec& P) const { // returns distance, 0 if no hit
 	float t = (x - r.o.x) / r.d.x;
 	const float& y = r.o.y + r.d.y * t;
 	const float& z = r.o.z + r.d.z * t;
@@ -92,11 +100,15 @@ float Rectangle_yz::intersect(const Ray &r) const { // returns distance, 0 if no
 	}
 }
 
-Vec Rectangle_yz::normal(const Ray &r, Hit_records &hit, Vec &x) const {
+Vec Rectangle_yz::normal(const Ray &r, Hit_records &hit) const {
 	Vec n = Vec(1, 0, 0);
 	hit.c = c;
 	hit.e = e;
 	return n.dot(r.d) < 0 ? n : n*-1;
+}
+
+float Rectangle_yz::surface() const {
+	return abs((y2 - y1) * (z2 - z1));
 }
 
 std::array<float, 3> Rectangle_yz::add_value_color(std::array<float, 3>& x_reduced) const {
@@ -112,7 +124,7 @@ std::array<float, 3> Rectangle_yz::add_value_color(std::array<float, 3>& x_reduc
 Rectangle_tilted::Rectangle_tilted(Vec p1_, Vec p2_, Vec p3_, Vec e_, Vec c_) :
 		p1(p1_), p2(p2_), p3(p3_), e(e_), c(c_) {}
 
-float Rectangle_tilted::intersect(const Ray &r) const
+float Rectangle_tilted::intersect(const Ray &r, Vec& P) const
 {
 	const Vec& n = (Vec(p1 - p2)%Vec(p1 - p3)).norm();
 	// assuming vectors are all normalized
@@ -128,7 +140,7 @@ float Rectangle_tilted::intersect(const Ray &r) const
 	return 0;
 }
 
-Vec Rectangle_tilted::normal(const Ray &r, Hit_records &hit, Vec &x) const {
+Vec Rectangle_tilted::normal(const Ray &r, Hit_records &hit) const {
 	const Vec& n = (Vec(p1 - p2)%Vec(p1 - p3)).norm();
 	hit.c = c;
 	hit.e = e;

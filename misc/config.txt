@@ -1,15 +1,16 @@
 # Config file. Please read Config_README.txt for info about the following variables.
 
-path_tracing_mode : 2
-experiment_name : test_scene3_QLearning_improved-action_parallel_cte_P6
+path_tracing_mode : 0
+experiment_name : test_scene4Astro_cos
 action_space_mode : 1
-scene : 3 
+scene : 4
 w_train : 128
 h_train : 128
-spp_train : 8
+spp_train : 16
 w_test : 256
 h_test : 256
-spp_test : 256
-training : 0
+spp_test : 32
+training : 1
 test : 1
-weight_filename : weights-test_scene3_QLearning_improved-action_parallel_P6
+weight_filename : weights-test_scene4Astro_cos
+save_every_spp : 1

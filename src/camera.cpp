@@ -28,7 +28,7 @@ Camera::Camera(Vec lookfrom, Vec lookat, Vec vup, float vfov, float aspect) {// 
 	vertical = v * (half_height * 2);
 }
 
-Ray Camera::get_ray(const float& s, const float& t) {
+const Ray Camera::get_ray(const float& s, const float& t) {
 	return Ray(origin,
 			lower_left_corner + horizontal * s + vertical * t - origin);
 }

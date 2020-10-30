@@ -5,11 +5,17 @@
  *      Author: mauro
  */
 #include "tiny_obj_loader.h"
-#include  <string.h>
+#include <vector>
+#include <string.h>
 #include <iostream>
 #include <cassert>
+#include <array>
 
-void load_obj(std::string &name_file);
+#include "vec.h"
+#include "triangle.h"
+#include "rectangles.h"
+
+std::vector<Hitable*> load_obj(std::string &name_file, int& NUM_OBJECTS, float& area_light_room);
 
 static void PrintInfo(const tinyobj::attrib_t& attrib,
                       const std::vector<tinyobj::shape_t>& shapes,

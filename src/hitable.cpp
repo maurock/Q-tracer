@@ -7,12 +7,14 @@
 
 #include "../include/hitable.h"
 #include <vector>
+#include <iostream>
 
 Hitable::Hitable() {};
 std::array<float, 6> Hitable::add_key(Vec &pos, Vec& nl) const {
 	Vec x_reduced = Vec(ceil((float) pos.x / 5), ceil((float) pos.y/ 5), ceil((float) pos.z / 5 ));
 	return { x_reduced.x, x_reduced.y, x_reduced.z, nl.x, nl.y, nl.z};
 };
+
 std::array<float, 73> Hitable::add_value(std::map<Action, Direction> *dictAction) const  {
 	std::array<float, 73> q_values;
 	std::map<Action, Direction> &addrDictAction = *dictAction;
@@ -29,21 +31,23 @@ std::array<float, 73> Hitable::add_value(std::map<Action, Direction> *dictAction
 bool intersect(const Ray &r, float &t, int &id, int& old_id, const int& NUM_OBJECTS, std::vector<Hitable*> rect) {
 	float d;
 	float inf = t = 1e20;
+	Vec P;
 	for (int i = 0; i < NUM_OBJECTS; i++) {
-		if ((d = rect[i]->intersect(r)) && d < t && i != old_id) {	// Distance of hit point
+		if ((d = rect[i]->intersect(r, P)) && d < t && i != old_id) {	// Distance of hit point
 			t = d;
 			id = i;
 		}
 	}
-
 	// Return the closest intersection, as a bool
 	return t < inf;
-}
-Vec hittingPoint(const Ray &r, int &id, int& old_id, const int& NUM_OBJECTS,std::vector<Hitable*> rect) {
-	float t;                             // distance to intersection
-	if (!intersect(r, t, id, old_id, NUM_OBJECTS, rect))
-		return Vec();
+};
 
+Vec hittingPoint(const Ray &r, int &id, int& old_id, const int& NUM_OBJECTS, std::vector<Hitable*> rect, Hit_records& hit_rec) {
+	float t;                             // distance to intersection
+	if (!intersect(r, t, id, old_id, NUM_OBJECTS, rect)){
+		return Vec();
+	}
+	hit_rec.hit = true;
 	Vec x = (r.o + r.d * (t - 0.01));// ray intersection point (t calculated in intersect())
 	return x ;
 }

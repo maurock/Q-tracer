@@ -1,10 +1,13 @@
 #ifndef INCLUDE_SCENES_H_
 #define INCLUDE_SCENES_H_
-#include "../include/rectangles.h"
-#include "../include/vec.h"
 #include <vector>
 #include <map>
-//----------------------------------------------------------------------------
+#include "rectangles.h"
+#include "triangle.h"
+#include "vec.h"
+#include "load_obj.h"
+
+
 
 class Scene{
 public:

@@ -13,7 +13,7 @@
 class Camera {
 public:
 	Camera(Vec lookfrom, Vec lookat, Vec vup, float vfov, float aspect);
-	Ray get_ray(const float& s, const float& t);
+	const Ray get_ray(const float& s, const float& t);
 	Vec origin;
 	Vec lower_left_corner;
 	Vec horizontal;

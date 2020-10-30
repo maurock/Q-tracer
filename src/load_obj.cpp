@@ -7,6 +7,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "../include/load_obj.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "../include/stb/stb_image.h"
+
 static void PrintInfo(const tinyobj::attrib_t& attrib,
                       const std::vector<tinyobj::shape_t>& shapes,
                       const std::vector<tinyobj::material_t>& materials) {
@@ -182,7 +185,7 @@ static void PrintInfo(const tinyobj::attrib_t& attrib,
   }
 }
 
-void load_obj(std::string &name_file){
+std::vector<Hitable*> load_obj(std::string &name_file, int& NUM_OBJECTS, float& area_light_room){
 	std::string inputfile = "misc/obj/" + name_file;
 	std::string inputfile_mat = "misc/obj";
 	tinyobj::attrib_t attrib;
@@ -210,33 +213,76 @@ void load_obj(std::string &name_file){
 
 	//PrintInfo(attrib, shapes, materials);
 
+	// Define object to return
+	std::vector<Hitable*> object;
+	Vec vertix[3];
+	std::array<float, 2> tex[3];
 	// Loop over shapes
 	for (size_t s = 0; s < shapes.size(); s++) {
+	  std::cout << "Shape size: " << shapes.size() <<  std::endl;
 	  // Loop over faces(polygon)
 	  size_t index_offset = 0;
-	  for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-	    int fv = shapes[s].mesh.num_face_vertices[f];
+	  for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {     // Number of triangles
+	    int fv = shapes[s].mesh.num_face_vertices[f];                            // Always 3 because there are 3 vertices per triangle
 	    // Loop over vertices in the face.
 	    for (size_t v = 0; v < fv; v++) {
 	      // access to vertex
 	      tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-	      tinyobj::real_t vx = attrib.vertices[3*idx.vertex_index+0];
-	      tinyobj::real_t vy = attrib.vertices[3*idx.vertex_index+1];
-	      tinyobj::real_t vz = attrib.vertices[3*idx.vertex_index+2];
+	      tinyobj::real_t vx = attrib.vertices[3*idx.vertex_index+0] * 2;
+	      tinyobj::real_t vy = attrib.vertices[3*idx.vertex_index+1] * 2;
+	      tinyobj::real_t vz = attrib.vertices[3*idx.vertex_index+2] * 2;
 	      tinyobj::real_t nx = attrib.normals[3*idx.normal_index+0];
 	      tinyobj::real_t ny = attrib.normals[3*idx.normal_index+1];
 	      tinyobj::real_t nz = attrib.normals[3*idx.normal_index+2];
 	      tinyobj::real_t tx = attrib.texcoords[2*idx.texcoord_index+0];
 	      tinyobj::real_t ty = attrib.texcoords[2*idx.texcoord_index+1];
-	      // Optional: vertex colors
-	      // tinyobj::real_t red = attrib.colors[3*idx.vertex_index+0];
-	      // tinyobj::real_t green = attrib.colors[3*idx.vertex_index+1];
-	      // tinyobj::real_t blue = attrib.colors[3*idx.vertex_index+2];
-	    }
-	    index_offset += fv;
+	      std::cout << "Vertici:    " << vx << " " << " " << vy << " " << vz << std::endl;
+	      //std::cout << "Normali:    " << nx << " " << " " << ny << " " << nz << std::endl;
+	      std::cout << "Texcoords:    " << tx << " " << " " << ty << std::endl;
 
+	      // Optional: vertex colors
+	       tinyobj::real_t red = attrib.colors[3*idx.vertex_index+0];
+	       tinyobj::real_t green = attrib.colors[3*idx.vertex_index+1];
+	       tinyobj::real_t blue = attrib.colors[3*idx.vertex_index+2];
+		   std::cout << "Colors:    " << red << " " << " " << green << " " << blue << std::endl;
+		   vertix[v] = Vec(vx, vy, vz);
+		   tex[v] = {tx, ty};
+	    }
+	    object.push_back(new Triangle(vertix[0], vertix[1], vertix[2], tex[0], tex[1], tex[2], Vec(), Vec(.95,.95,.95)));
+	    index_offset += fv;
 	    // per-face material
 	    shapes[s].mesh.material_ids[f];
 	  }
 	}
+
+	Rectangle_yz* light_source;
+	//light_source = new Rectangle_yz(40, 70, -10, 10, 30, Vec(12, 4, 2), Vec());      // cube
+	light_source = new Rectangle_yz(3, 6, -2, 20, -4.9, Vec(1.2, 1.2, 1.2), Vec());
+	area_light_room = light_source->surface();
+	object.push_back(light_source);
+
+	std::vector<Hitable*> scene_obj = {
+			new Rectangle_xy(-5, 3, 0, 10, -2, Vec(),Vec(.75, .75, .75)),
+			//new Rectangle_xy(-5, 3, 0, 10, 20, Vec(),Vec(.75, .75, .75)),
+			new Rectangle_yz(0, 10, -2, 20, -5, Vec(), Vec(.25, .75, .25)),	// Left, green
+			new Rectangle_yz(0, 10, -2, 20, 3, Vec(), Vec(.75, .25, .25)),	// Red
+			new Rectangle_xz(-5, 3, -2, 20, 0, Vec(), Vec(.75, .75, .75)),			// Bottom
+			new Rectangle_xz(-5, 3, -2, 20, 10, Vec(), Vec(.75, .75, .75))
+	};
+	for(Hitable* i : scene_obj) {
+		object.push_back(i);
+	}
+
+	int x, y, comps;
+	unsigned char* texture = stbi_load(".//misc//obj//Astronaut.png", &x, &y, &comps, 3);
+	std::cout << "X: " << x << "   Y: " << y <<  "  Comps: " << comps << std::endl;
+	int i=557, j=113;
+	unsigned bytePerPixel = comps;
+	const stbi_uc* pixelOffset = texture + (i + y * j) * bytePerPixel;
+	stbi_uc r = pixelOffset[0];
+	stbi_uc g = pixelOffset[1];
+	stbi_uc b = pixelOffset[2];
+    std::cout << "R: " << (int)r << "   G: " << (int)g <<  "  B: " << (int)b << std::endl;
+	NUM_OBJECTS = object.size();
+	return object;
 }

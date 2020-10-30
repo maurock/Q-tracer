@@ -13,16 +13,19 @@ Scene::Scene(int& idx_scene_) : idx_scene(idx_scene_) {
 		NUM_OBJECTS = 17;
 		area_light_room = 1188;
 	}
-	if(idx_scene == 2) {
+	else if(idx_scene == 2) {
 		NUM_OBJECTS = 17;
 		area_light_room = 275;
 	}
-	if(idx_scene == 3) {
+	else if(idx_scene == 3) {
 		NUM_OBJECTS = 18;
 		area_light_room = 1680;
 	}
+	else if(idx_scene == 4) {    // Load with tinyobjectloader
+		NUM_OBJECTS = 0;
+		area_light_room = 0;
+	}
 }
-
 
 
 std::vector<Hitable*> Scene::get_scene() {
@@ -94,5 +97,57 @@ std::vector<Hitable*> Scene::get_scene() {
 				new Rectangle_xz(63, 88, 63, 88, 25, Vec(), Vec(.95,.95,.95)),
 				new Rectangle_tilted(Vec(1.0,0,60),Vec(10,0,100),Vec(1,60,60),Vec(), Vec(.75, .25, .25))		// Tilted plane
 			};
+
+		// Scene 4: load with Tinyobjloader
+		case 4:
+			std::string filename_obj = "Astronaut.obj";
+			return load_obj(filename_obj, NUM_OBJECTS, area_light_room);
 		}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

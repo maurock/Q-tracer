@@ -11,6 +11,7 @@
 struct Hit_records {		// Store object element
 	Vec c;
 	Vec e;
+	float hit = false;
 };
 
 #endif /* INCLUDE_HITRECORDS_H_ */
